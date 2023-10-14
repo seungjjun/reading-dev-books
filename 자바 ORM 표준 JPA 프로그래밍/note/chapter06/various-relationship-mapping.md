@@ -171,3 +171,128 @@ public class Member {
 이때, 둘 다 같은 키를 관리하므로 문제가 발생할 수 있기 때문에 다대일 쪽은 insertable = false, updatable = false 로 설정해 **읽기**만 가능하게 했다.
 
 이는 일대다 단방향 매핑이 가지는 단점을 그대로 가지기 때문에 될 수 있으면 `양방향 매핑`을 사용하자.
+
+## 일대일 [1:1]
+
+일대일 관계는 양쪽이 서로 하나의 관계만 갖는다.  
+일대일 관계의 특징
+- 일대일 관계는 그 반대도 일대일 관계다.
+- 테이블 관계에서 일대다, 다대일은 항상 다(N)쪽이 외래 키를 가진다. 반면에 일대일 관계는 주 테이블이나 대상 테이블 둘 중 어느곳이나 외래 키를 가질 수 있다.
+
+테이블은 주 테이블이든 대상 테이블이든 외래 키 하나만 있으면 양쪽으로 조회할 수 있다. 그래서 누가 외래 키를 가질지 선택해야 한다.
+
+- 주 테이블에 외래 키
+  - 주 테이블이 외래 키를 가지고 있으므로 주 테이블만 확인해도 대상 테이블과 연관관계가 있는지 알 수 있다.
+
+- 대상 테이블에 외래 키
+  - 테이블 관계를 일대일에서 일대다로 변경할 때 테이블 구조를 그대로 유지할 수 있다.
+
+### 주 테이블에 외래 키
+#### 단방향
+회원과 사물함의 일대일 단방향 관계
+```java
+@Entity
+public class Member {
+    @Id @GeneratedValue
+    @Column(name = "MEMBER_ID")
+    private Long id;
+
+    private String username;
+    
+    @OneToOne
+    @JoinColumn(name = "LOCKER_ID")
+    private Locker locker;
+}
+
+@Entity
+public class Locker {
+    @Id @GeneratedValue
+    @Column(name ="LOCKER_ID")
+    private Long id;
+
+    private String name;
+}
+```
+일대일 관계이므로 @OneToOne을 사용했고 데이터베이스에는 LOCKER_ID 외래 키에 유니크 제약 조건(UNI)을 추가했다. (다대일 단방향(@ManyToOne)과 비슷하다.)
+
+#### 양방향
+회원과 사물함의 일대일 양방향 관계
+```java
+@Entity
+public class Member {
+    @Id @GeneratedValue
+    @Column(name = "MEMBER_ID")
+    private Long id;
+
+    private String username;
+    
+    @OneToOne
+    @JoinColumn(name = "LOCKER_ID")
+    private Locker locker;
+}
+
+@Entity
+public class Locker {
+    @Id @GeneratedValue
+    @Column(name ="LOCKER_ID")
+    private Long id;
+
+    private String name;
+    
+    @OneToOne(mappedBy = "locker")
+    private Member member;
+}
+```
+양방향이기 때문에 연관관계의 주인을 정해야 한다.  
+Member 테이블이 외래 키를 갖고 있으므로 Member 엔티티에 있는 Member.locker가 연관관계의 주인이다.
+
+### 대상 테이블에 외래 키
+#### 단방향
+일대일 관계 중 대상 테이블에 외래 키가 있는 단방향 관계는 JPA에서 지원하지 않는다.  
+이 때는 단방향 관계를 Locker에서 Member 방향으로 수정하거나, 양방향 관계로 만들고 Locker를 연관관계의 주인으로 설정해야 한다.
+
+#### 양방향
+
+```java
+@Entity
+public class Member {
+    @Id @GeneratedValue
+    @Column(name = "MEMBER_ID")
+    private Long id;
+
+    private String username;
+
+    @OneToOne(mappedBy = "member")
+    private Locker locker;
+}
+
+@Entity
+public class Locker {
+    @Id @GeneratedValue
+    @Column(name ="LOCKER_ID")
+    private Long id;
+
+    private String name;
+
+    @OneToOne
+    @JoinColumn(name = "MEMBER_ID")
+    private Member member;
+}
+```
+
+일대일 매핑에서 대상 테이블에 외래 키를 두고 싶으면 위처럼 양방향으로 매핑한다.  
+주 엔티티엔 Member 엔티티 대신에 대상 엔티티인 Locker를 연관관계의 주인으로 만들어서 LOCKER 테이블의 외래 키를 관리하도록 했다.
+
+## 다대다 [N:N]
+관계형 데이터베이스는 정규화된 테이블 2개로 다대다 관계를 표현할 수 없다. 그래서 보통 다대다 관계를 일대다, 다대일 관계로 풀어내는 연결 테이블을 사용한다.
+
+그런데 객체는 테이블과 다르게 객체 2개로 다대다 관계를 만들 수 있다.  
+예를 들어 회원 객체는 컬렉션을 사용해 상품들을 참조하면 되고 반대로 상품들도 컬렉션을 사용해서 회원들을 참조하면 된다.
+
+### 다대다 연관관계 정리
+다대다 관계를 일대다 다대일 관계로 풀어내기 위해 연결 테이블을 만들 때 식별자를 어떻게 구성할지 선택해야 한다.
+
+- 식별 관계: 받아온 식별자를 기본 키 + 외래 키로 사용한다.
+- 비식별 관계: 받아온 식별자는 외래 키로만 사용하고 새로운 식별자를 추가한다.
+
+객체 입장에서 보면 비식별 관계를 사용하는 것이 복합 키를 위한 식별자 클래스를 만들지 않아도 되므로 단순하고 편리하게 ORM 매핑을 할 수 있다.
