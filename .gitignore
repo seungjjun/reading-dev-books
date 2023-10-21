@@ -49,3 +49,6 @@ build/
 
 # Cache of project
 .gradletasknamecache
+
+# secret
+application-oauth.yml
